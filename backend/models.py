@@ -1,13 +1,17 @@
 """Pydantic models for API validation and responses."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
+
+QuestionType = Literal["scale", "binary", "mcq"]
 
 
 class Question(BaseModel):
     id: str
     text: str
+    type: QuestionType
+    options: Optional[List[str]] = None
 
 
 class CareerMatch(BaseModel):
@@ -25,12 +29,14 @@ class AssessmentResult(BaseModel):
 class StartResponse(BaseModel):
     session_id: str
     question: Question
-    message: str = "Session started. Please answer using a value from 1 to 5."
+    message: str = "Session started. Please submit an answer matching the question type."
 
 
 class AnswerRequest(BaseModel):
     session_id: str
-    answer: int = Field(ge=1, le=5)
+    answer: Union[int, str] = Field(
+        description="scale: int 1..5, binary: 'yes'/'no', mcq: option index int (0-based)"
+    )
 
 
 class NextResponse(BaseModel):

@@ -97,6 +97,69 @@ def require_active_question(session: Dict[str, Any]) -> Dict[str, Any]:
     return current_question
 
 
+def build_question_payload(question: Dict[str, Any]) -> Question:
+    """Convert internal question dicts to API-safe response payloads."""
+    question_type = question.get("type")
+    payload = {
+        "id": question["id"],
+        "text": question["text"],
+        "type": question_type,
+    }
+    if question_type == "mcq":
+        payload["options"] = list(question.get("options", []))
+    return Question(**payload)
+
+
+def validate_answer_for_question(question: Dict[str, Any], answer: Any) -> Any:
+    """Validate and normalize answer payload based on current question type."""
+    question_type = question.get("type")
+    question_id = question.get("id", "<unknown>")
+
+    if question_type == "scale":
+        if not isinstance(answer, int) or isinstance(answer, bool) or not (1 <= answer <= 5):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid answer for scale question '{question_id}'. Expected integer 1-5.",
+            )
+        return answer
+
+    if question_type == "binary":
+        if not isinstance(answer, str):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid answer for binary question '{question_id}'. Expected 'yes' or 'no'.",
+            )
+        normalized = answer.strip().lower()
+        if normalized not in {"yes", "no"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid answer for binary question '{question_id}'. Expected 'yes' or 'no'.",
+            )
+        return normalized
+
+    if question_type == "mcq":
+        if not isinstance(answer, int) or isinstance(answer, bool):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid answer for mcq question '{question_id}'. Expected a 0-based option index.",
+            )
+        options = question.get("options", [])
+        if answer < 0 or answer >= len(options):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid answer for mcq question '{question_id}'. "
+                    f"Expected index in range [0, {len(options) - 1}]."
+                ),
+            )
+        return answer
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"Question '{question_id}' has unsupported type '{question_type}'.",
+    )
+
+
 @app.get("/health")
 async def healthcheck() -> Dict[str, str]:
     """Lightweight health endpoint for deployments."""
@@ -117,7 +180,7 @@ async def get_advice(request: AdviceRequest) -> AdviceResponse:
     return AdviceResponse(**advice)
 
 
-@app.post("/start", response_model=StartResponse)
+@app.post("/start", response_model=StartResponse, response_model_exclude_none=True)
 async def start_session() -> StartResponse:
     """Create a session and return the first adaptive question."""
     session_id = str(uuid.uuid4())
@@ -138,22 +201,23 @@ async def start_session() -> StartResponse:
 
     return StartResponse(
         session_id=session_id,
-        question=Question(id=first_question["id"], text=first_question["text"]),
+        question=build_question_payload(first_question),
     )
 
 
-@app.post("/next", response_model=NextResponse)
+@app.post("/next", response_model=NextResponse, response_model_exclude_none=True)
 async def next_question(request: AnswerRequest) -> NextResponse:
     """Process an answer, then return the next question or the final result."""
     session = get_session(request.session_id)
     current_question = require_active_question(session)
 
+    normalized_answer = validate_answer_for_question(current_question, request.answer)
+
     try:
         updated_state = update_state(
             state=session["state"],
-            trait=current_question["trait"],
-            answer=request.answer,
-            likelihoods=current_question["likelihood"],
+            question=current_question,
+            answer=normalized_answer,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -200,12 +264,12 @@ async def next_question(request: AnswerRequest) -> NextResponse:
     logger.info(
         "Session %s processed answer %s and selected %s",
         request.session_id,
-        request.answer,
+        normalized_answer,
         next_question_item["id"],
     )
     return NextResponse(
         session_id=request.session_id,
-        question=Question(id=next_question_item["id"], text=next_question_item["text"]),
+        question=build_question_payload(next_question_item),
         message="Next question selected.",
         state=updated_state,
     )

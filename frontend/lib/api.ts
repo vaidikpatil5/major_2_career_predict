@@ -1,6 +1,7 @@
 import type {
   AdviceRequest,
   AdviceResponse,
+  AnswerPayload,
   NextResponse,
   ResultResponse,
   StartResponse,
@@ -74,7 +75,7 @@ export async function startAssessment(): Promise<StartResponse> {
 
 export async function submitAnswer(
   session_id: string,
-  answer: number
+  answer: AnswerPayload
 ): Promise<NextResponse> {
   return requestJson<NextResponse>("/next", {
     method: "POST",

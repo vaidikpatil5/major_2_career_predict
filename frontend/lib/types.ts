@@ -1,6 +1,14 @@
+export type QuestionType = "scale" | "binary" | "mcq";
+
+/** scale: 1–5, binary: yes/no, mcq: 0-based option index */
+export type AnswerPayload = number | "yes" | "no";
+
 export interface Question {
   id: string;
   text: string;
+  /** Defaults to scale if omitted (older API payloads). */
+  type?: QuestionType;
+  options?: string[] | null;
 }
 
 export interface CareerMatch {

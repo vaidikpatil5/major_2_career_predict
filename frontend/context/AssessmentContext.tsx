@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AssessmentResult, Question } from "@/lib/types";
+import type { AnswerPayload, AssessmentResult, Question } from "@/lib/types";
 
 const MAX_QUESTIONS = 10;
 const STORAGE_KEY = "career_assessment_state_v1";
@@ -48,7 +48,7 @@ function writePersistedState(data: PersistedState) {
   }
 }
 
-export type AnswerRecord = { questionId: string; value: number };
+export type AnswerRecord = { questionId: string; value: AnswerPayload };
 
 type AssessmentContextValue = {
   sessionId: string | null;
@@ -58,7 +58,7 @@ type AssessmentContextValue = {
   maxQuestions: number;
   setSessionFromStart: (sessionId: string, question: Question) => void;
   setNextQuestion: (question: Question | null) => void;
-  appendAnswer: (questionId: string, value: number) => void;
+  appendAnswer: (questionId: string, value: AnswerPayload) => void;
   setResult: (result: AssessmentResult) => void;
   resetAssessment: () => void;
 };
@@ -95,7 +95,7 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
     });
   }, [sessionId, answers, result]);
 
-  const appendAnswer = useCallback((questionId: string, value: number) => {
+  const appendAnswer = useCallback((questionId: string, value: AnswerPayload) => {
     setAnswers((prev) => {
       const nextAnswers = [...prev, { questionId, value }];
       writePersistedState({
