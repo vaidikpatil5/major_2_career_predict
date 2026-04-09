@@ -17,6 +17,9 @@ class Question(BaseModel):
 class CareerMatch(BaseModel):
     role: str
     score: float
+    trait_score: Optional[float] = None
+    career_signal_score: Optional[float] = None
+    blended_score: Optional[float] = None
 
 
 class AssessmentResult(BaseModel):

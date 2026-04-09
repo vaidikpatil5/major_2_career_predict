@@ -3,10 +3,11 @@
 import math
 import random
 from collections import Counter
-from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Set, Tuple
 
 from bayesian import update_state
-from data import questions
+from data import career_questions, questions
+from matcher import get_top_careers
 
 MIN_QUESTIONS = 5
 MAX_QUESTIONS = 10
@@ -14,6 +15,12 @@ EARLY_STAGE_QUESTIONS = 4
 TARGET_TRAIT_EXPOSURE = 2
 DOMINANT_TRAIT_THRESHOLD = 0.40
 UNCERTAINTY_STOP_THRESHOLD = 0.56
+MIN_CAREER_QUESTIONS = 1
+MAX_CAREER_QUESTIONS = 3
+CAREER_TIEBREAK_MARGIN = 0.06
+
+ALL_QUESTIONS = questions + career_questions
+QUESTION_LOOKUP = {question["id"]: question for question in ALL_QUESTIONS}
 
 
 def _binary_entropy(probability: float) -> float:
@@ -139,10 +146,17 @@ def _question_target_traits(question: dict) -> Set[str]:
         return target_traits
 
     if question_type == "mcq":
+        if question.get("career_weights") is not None:
+            return set()
         for option_weight in question.get("weights", []):
             if isinstance(option_weight, dict):
                 target_traits.update(option_weight.keys())
     return target_traits
+
+
+def _is_career_question(question: dict) -> bool:
+    """Return True for question items that contribute direct career evidence."""
+    return question.get("career_weights") is not None
 
 
 def _asked_trait_counts(asked_question_ids: Set[str]) -> Counter:
@@ -151,14 +165,18 @@ def _asked_trait_counts(asked_question_ids: Set[str]) -> Counter:
     if not asked_question_ids:
         return counts
 
-    question_lookup = {question["id"]: question for question in questions}
     for question_id in asked_question_ids:
-        question = question_lookup.get(question_id)
+        question = QUESTION_LOOKUP.get(question_id)
         if not question:
             continue
         for trait in _question_target_traits(question):
             counts[trait] += 1
     return counts
+
+
+def _asked_career_question_count(asked_question_ids: Set[str]) -> int:
+    """Count number of career-based questions asked in a session."""
+    return sum(1 for question_id in asked_question_ids if _is_career_question(QUESTION_LOOKUP.get(question_id, {})))
 
 
 def _type_preference(question_type: str, questions_asked: int) -> float:
@@ -215,11 +233,63 @@ def _exploration_rate(questions_asked: int) -> float:
     return 0.03
 
 
-def should_stop(state: Dict[str, float], questions_asked: int) -> bool:
+def _career_tiebreak_needed(state: Dict[str, float], career_signal: Optional[Dict[str, float]]) -> bool:
+    """
+    Return True when top blended careers are close enough to justify tie-break questions.
+    """
+    ranked = get_top_careers(state=state, career_signal=career_signal, top_n=2)
+    if len(ranked) < 2:
+        return False
+    margin = ranked[0]["score"] - ranked[1]["score"]
+    return margin <= CAREER_TIEBREAK_MARGIN
+
+
+def _career_question_discrimination(question: dict, state: Dict[str, float], career_signal: Optional[Dict[str, float]]) -> float:
+    """
+    Measure how much a career question can separate the top two current candidates.
+    """
+    ranked = get_top_careers(state=state, career_signal=career_signal, top_n=2)
+    if len(ranked) < 2:
+        return 0.0
+    top_role = ranked[0]["role"]
+    second_role = ranked[1]["role"]
+
+    option_weights = question.get("career_weights", [])
+    if not isinstance(option_weights, list) or not option_weights:
+        return 0.0
+
+    max_delta = 0.0
+    for weight_map in option_weights:
+        if not isinstance(weight_map, Mapping):
+            continue
+        delta = abs(float(weight_map.get(top_role, 0.0)) - float(weight_map.get(second_role, 0.0)))
+        if delta > max_delta:
+            max_delta = delta
+    return max_delta
+
+
+def _career_question_score(
+    question: dict,
+    asked_career_questions: int,
+    state: Dict[str, float],
+    career_signal: Optional[Dict[str, float]],
+) -> float:
+    """
+    Score career questions using discriminative power + stage-dependent priority.
+    """
+    discrimination = _career_question_discrimination(question, state=state, career_signal=career_signal)
+    early_bonus = 0.2 if asked_career_questions < MIN_CAREER_QUESTIONS else 0.0
+    diminishing = max(0.0, 0.25 - (asked_career_questions * 0.08))
+    return (0.7 * discrimination) + early_bonus + diminishing
+
+
+def should_stop(state: Dict[str, float], questions_asked: int, asked_career_questions: int = 0) -> bool:
     """Return True when minimum evidence is collected and confidence is strong enough."""
     if questions_asked >= MAX_QUESTIONS:
         return True
     if questions_asked < MIN_QUESTIONS:
+        return False
+    if asked_career_questions < MIN_CAREER_QUESTIONS:
         return False
     if not state:
         return False
@@ -233,7 +303,24 @@ def select_next_question(
     state: Dict[str, float],
     asked_question_ids: Iterable[str],
     questions_asked: int,
+    career_signal: Optional[Dict[str, float]] = None,
 ) -> Optional[dict]:
+    """Backward-compatible selector that returns only the chosen question."""
+    question, _ = select_next_question_with_debug(
+        state=state,
+        asked_question_ids=asked_question_ids,
+        questions_asked=questions_asked,
+        career_signal=career_signal,
+    )
+    return question
+
+
+def select_next_question_with_debug(
+    state: Dict[str, float],
+    asked_question_ids: Iterable[str],
+    questions_asked: int,
+    career_signal: Optional[Dict[str, float]] = None,
+) -> Tuple[Optional[dict], Dict[str, Any]]:
     """
     Select the next question with mixed exploration/exploitation.
 
@@ -241,21 +328,93 @@ def select_next_question(
     Exploitation: score-based selection balancing expected information gain,
     trait coverage, targeted uncertainty, and question-type progression.
     """
-    if should_stop(state, questions_asked):
-        return None
-
+    debug: Dict[str, Any] = {
+        "questions_asked": questions_asked,
+        "current_uncertainty": round(calculate_uncertainty(state), 6),
+    }
     asked_lookup = set(asked_question_ids)
-    unasked_questions = [question for question in questions if question["id"] not in asked_lookup]
-    if not unasked_questions:
-        return None
+    asked_career_questions = _asked_career_question_count(asked_lookup)
+    debug["asked_career_questions"] = asked_career_questions
 
-    if random.random() < _exploration_rate(questions_asked):
-        return random.choice(unasked_questions)
+    if should_stop(state, questions_asked, asked_career_questions=asked_career_questions):
+        debug["decision"] = "stop"
+        debug["reason"] = "stopping_condition_met"
+        return None, debug
+
+    unasked_trait_questions = [question for question in questions if question["id"] not in asked_lookup]
+    unasked_career_questions = [question for question in career_questions if question["id"] not in asked_lookup]
+    force_early_career = questions_asked < 3 and asked_career_questions < MIN_CAREER_QUESTIONS
+    force_min_career_coverage = questions_asked >= MIN_QUESTIONS and asked_career_questions < MIN_CAREER_QUESTIONS
+    tie_break_mode = _career_tiebreak_needed(state=state, career_signal=career_signal)
+
+    can_ask_career = asked_career_questions < MAX_CAREER_QUESTIONS and (
+        force_early_career or force_min_career_coverage or tie_break_mode
+    )
+    force_career_only = force_early_career or force_min_career_coverage
+
+    if force_career_only:
+        # Guarantee career coverage when possible; otherwise degrade gracefully.
+        if unasked_career_questions:
+            unasked_questions = list(unasked_career_questions)
+        else:
+            unasked_questions = list(unasked_trait_questions)
+            debug["career_force_fallback"] = "no_unasked_career_questions"
+    else:
+        unasked_questions = list(unasked_trait_questions)
+        if can_ask_career:
+            unasked_questions.extend(unasked_career_questions)
+
+    debug["force_early_career"] = force_early_career
+    debug["force_min_career_coverage"] = force_min_career_coverage
+    debug["force_career_only"] = force_career_only
+    debug["tie_break_mode"] = tie_break_mode
+    debug["career_candidate_enabled"] = can_ask_career
+
+    if not unasked_questions:
+        debug["decision"] = "stop"
+        debug["reason"] = "no_unasked_questions"
+        return None, debug
+
+    exploration_rate = _exploration_rate(questions_asked)
+    debug["exploration_rate"] = round(exploration_rate, 4)
+    if random.random() < exploration_rate:
+        selected = random.choice(unasked_questions)
+        debug["decision"] = "exploration"
+        debug["selected_question_id"] = selected["id"]
+        debug["selected_question_type"] = selected.get("type")
+        debug["candidate_count"] = len(unasked_questions)
+        return selected, debug
 
     trait_counts = _asked_trait_counts(asked_lookup)
     scored_candidates: list[Tuple[float, dict]] = []
+    candidate_details = []
 
     for question in unasked_questions:
+        if _is_career_question(question):
+            final_score = _career_question_score(
+                question=question,
+                asked_career_questions=asked_career_questions,
+                state=state,
+                career_signal=career_signal,
+            )
+            scored_candidates.append((final_score, question))
+            candidate_details.append(
+                {
+                    "question_id": question["id"],
+                    "type": question.get("type"),
+                    "kind": "career",
+                    "targets": [],
+                    "final_score": round(final_score, 6),
+                    "components": {
+                        "career_discrimination": round(
+                            _career_question_discrimination(question, state=state, career_signal=career_signal), 6
+                        ),
+                        "asked_career_questions": asked_career_questions,
+                    },
+                }
+            )
+            continue
+
         target_traits = _question_target_traits(question)
         info_gain = _information_gain(state, question)
         uncertainty_score = _target_uncertainty_score(state, target_traits)
@@ -271,8 +430,38 @@ def select_next_question(
             - repeat_penalty
         )
         scored_candidates.append((final_score, question))
+        candidate_details.append(
+            {
+                "question_id": question["id"],
+                "type": question.get("type"),
+                "kind": "trait",
+                "targets": sorted(target_traits),
+                "final_score": round(final_score, 6),
+                "components": {
+                    "info_gain": round(info_gain, 6),
+                    "target_uncertainty": round(uncertainty_score, 6),
+                    "coverage_bonus": round(coverage_bonus, 6),
+                    "type_score": round(type_score, 6),
+                    "repeat_penalty": round(repeat_penalty, 6),
+                },
+            }
+        )
 
     if scored_candidates:
         scored_candidates.sort(key=lambda item: item[0], reverse=True)
-        return scored_candidates[0][1]
-    return random.choice(unasked_questions)
+        selected = scored_candidates[0][1]
+        candidate_details.sort(key=lambda item: item["final_score"], reverse=True)
+
+        debug["decision"] = "exploitation"
+        debug["selected_question_id"] = selected["id"]
+        debug["selected_question_type"] = selected.get("type")
+        debug["candidate_count"] = len(candidate_details)
+        debug["top_candidates"] = candidate_details[:5]
+        return selected, debug
+
+    fallback = random.choice(unasked_questions)
+    debug["decision"] = "fallback_random"
+    debug["selected_question_id"] = fallback["id"]
+    debug["selected_question_type"] = fallback.get("type")
+    debug["candidate_count"] = len(unasked_questions)
+    return fallback, debug

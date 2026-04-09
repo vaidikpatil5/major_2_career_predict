@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from advisor import generate_advice
-from bayesian import initial_state, update_state
+from bayesian import initial_career_signal, initial_state, update_career_signal, update_state
 from matcher import get_top_careers
 from models import (
     AdviceRequest,
@@ -23,7 +23,7 @@ from models import (
     ResultResponse,
     StartResponse,
 )
-from selector import select_next_question, should_stop
+from selector import calculate_uncertainty, select_next_question_with_debug, should_stop
 
 SESSION_TTL_SECONDS = 30 * 60
 
@@ -31,6 +31,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 sessions: Dict[str, Dict[str, Any]] = {}
+MAX_SELECTOR_TRACE_ENTRIES = 50
 
 
 def cleanup_expired_sessions() -> None:
@@ -69,7 +70,7 @@ app.add_middleware(
 
 def build_result_payload(state: Dict[str, float]) -> AssessmentResult:
     """Build the top-three recommendation payload."""
-    ranked_careers = get_top_careers(state)
+    ranked_careers = get_top_careers(state=state)
     logger.debug("Ranked careers: %s", ranked_careers)
     return AssessmentResult(
         best_match=CareerMatch(**ranked_careers[0]),
@@ -77,6 +78,29 @@ def build_result_payload(state: Dict[str, float]) -> AssessmentResult:
         confidence=ranked_careers[0]["score"],
         state=state,
     )
+
+
+def build_result_payload_with_signal(state: Dict[str, float], career_signal: Dict[str, float]) -> AssessmentResult:
+    """Build the top-three recommendation payload using blended scoring."""
+    ranked_careers = get_top_careers(state=state, career_signal=career_signal)
+    logger.debug("Ranked careers: %s", ranked_careers)
+    return AssessmentResult(
+        best_match=CareerMatch(**ranked_careers[0]),
+        alternatives=[CareerMatch(**career) for career in ranked_careers[1:]],
+        confidence=ranked_careers[0]["score"],
+        state=state,
+    )
+
+
+def append_selector_trace(session: Dict[str, Any], entry: Dict[str, Any]) -> None:
+    """Store bounded selector telemetry for session-level debugging."""
+    trace = session.setdefault("selector_trace", [])
+    if not isinstance(trace, list):
+        trace = []
+        session["selector_trace"] = trace
+    trace.append(entry)
+    if len(trace) > MAX_SELECTOR_TRACE_ENTRIES:
+        del trace[:-MAX_SELECTOR_TRACE_ENTRIES]
 
 
 def get_session(session_id: str) -> Dict[str, Any]:
@@ -185,18 +209,36 @@ async def start_session() -> StartResponse:
     """Create a session and return the first adaptive question."""
     session_id = str(uuid.uuid4())
     state = initial_state()
-    first_question = select_next_question(state=state, asked_question_ids=set(), questions_asked=0)
+    career_signal = initial_career_signal()
+    first_question, selector_debug = select_next_question_with_debug(
+        state=state,
+        career_signal=career_signal,
+        asked_question_ids=set(),
+        questions_asked=0,
+    )
     if first_question is None:
         raise HTTPException(status_code=500, detail="Unable to start assessment.")
 
     sessions[session_id] = {
         "state": state,
+        "career_signal": career_signal,
         "asked_question_ids": {first_question["id"]},
+        "asked_career_questions": 1 if first_question.get("career_weights") else 0,
         "answered_count": 0,
         "current_question": first_question,
         "result": None,
+        "selector_trace": [],
         "updated_at": time.time(),
     }
+    append_selector_trace(
+        sessions[session_id],
+        {
+            "event": "start_selection",
+            "selected_question_id": first_question["id"],
+            "debug": selector_debug,
+            "timestamp": time.time(),
+        },
+    )
     logger.info("Created session %s", session_id)
 
     return StartResponse(
@@ -213,16 +255,27 @@ async def next_question(request: AnswerRequest) -> NextResponse:
 
     normalized_answer = validate_answer_for_question(current_question, request.answer)
 
+    updated_state = session["state"]
+    updated_career_signal = session.get("career_signal", initial_career_signal())
+
     try:
-        updated_state = update_state(
-            state=session["state"],
-            question=current_question,
-            answer=normalized_answer,
-        )
+        if current_question.get("type") == "scale" or current_question.get("weights") is not None:
+            updated_state = update_state(
+                state=session["state"],
+                question=current_question,
+                answer=normalized_answer,
+            )
+        if current_question.get("career_weights") is not None:
+            updated_career_signal = update_career_signal(
+                career_signal=updated_career_signal,
+                question=current_question,
+                answer=normalized_answer,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     session["state"] = updated_state
+    session["career_signal"] = updated_career_signal
     session["answered_count"] += 1
     logger.debug(
         "Session %s state after %s: %s",
@@ -231,8 +284,22 @@ async def next_question(request: AnswerRequest) -> NextResponse:
         updated_state,
     )
 
-    if should_stop(updated_state, session["answered_count"]):
-        result = build_result_payload(updated_state)
+    if should_stop(
+        updated_state,
+        session["answered_count"],
+        asked_career_questions=session.get("asked_career_questions", 0),
+    ):
+        append_selector_trace(
+            session,
+            {
+                "event": "stop_after_answer",
+                "answered_count": session["answered_count"],
+                "dominant_trait_score": max(updated_state.values()) if updated_state else 0.0,
+                "uncertainty": calculate_uncertainty(updated_state),
+                "timestamp": time.time(),
+            },
+        )
+        result = build_result_payload_with_signal(updated_state, updated_career_signal)
         session["result"] = result
         session["current_question"] = None
         logger.info("Completed session %s after %s answers", request.session_id, session["answered_count"])
@@ -243,13 +310,23 @@ async def next_question(request: AnswerRequest) -> NextResponse:
             state=updated_state,
         )
 
-    next_question_item = select_next_question(
+    next_question_item, selector_debug = select_next_question_with_debug(
         state=updated_state,
+        career_signal=updated_career_signal,
         asked_question_ids=session["asked_question_ids"],
         questions_asked=session["answered_count"],
     )
     if next_question_item is None:
-        result = build_result_payload(updated_state)
+        append_selector_trace(
+            session,
+            {
+                "event": "selector_returned_none",
+                "answered_count": session["answered_count"],
+                "debug": selector_debug,
+                "timestamp": time.time(),
+            },
+        )
+        result = build_result_payload_with_signal(updated_state, updated_career_signal)
         session["result"] = result
         session["current_question"] = None
         return NextResponse(
@@ -261,6 +338,19 @@ async def next_question(request: AnswerRequest) -> NextResponse:
 
     session["current_question"] = next_question_item
     session["asked_question_ids"].add(next_question_item["id"])
+    if next_question_item.get("career_weights") is not None:
+        session["asked_career_questions"] = session.get("asked_career_questions", 0) + 1
+    append_selector_trace(
+        session,
+        {
+            "event": "next_selection",
+            "selected_question_id": next_question_item["id"],
+            "answer_to_previous_question": normalized_answer,
+            "answered_count": session["answered_count"],
+            "debug": selector_debug,
+            "timestamp": time.time(),
+        },
+    )
     logger.info(
         "Session %s processed answer %s and selected %s",
         request.session_id,
@@ -291,6 +381,28 @@ async def get_result(session_id: str) -> ResultResponse:
         state=result.state,
         questions_answered=session["answered_count"],
     )
+
+
+@app.get("/debug/session/{session_id}")
+async def get_session_debug(session_id: str) -> Dict[str, Any]:
+    """Inspect adaptive selector telemetry for a given session."""
+    session = get_session(session_id)
+    state = session.get("state", {})
+    return {
+        "session_id": session_id,
+        "answered_count": session.get("answered_count", 0),
+        "asked_career_questions": session.get("asked_career_questions", 0),
+        "current_question_id": (
+            session.get("current_question", {}).get("id")
+            if isinstance(session.get("current_question"), dict)
+            else None
+        ),
+        "is_complete": session.get("result") is not None,
+        "dominant_trait_score": max(state.values()) if state else 0.0,
+        "uncertainty": calculate_uncertainty(state) if state else 0.0,
+        "career_signal": session.get("career_signal", {}),
+        "selector_trace": session.get("selector_trace", []),
+    }
 
 
 if __name__ == "__main__":

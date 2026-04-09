@@ -204,6 +204,268 @@ questions = [
 
 ]
 
+career_questions = [
+    {
+        "id": "C1",
+        "type": "mcq",
+        "text": "When a project gets stuck, what do you usually do first?",
+        "options": [
+            "Break the problem into parts, check what the data says, and prioritize fixes",
+            "Talk to stakeholders, align expectations, and reset the plan",
+            "Prototype a quick workaround and improve it through feedback",
+            "Push for immediate execution, monitor outcomes, and adjust on the move",
+        ],
+        "career_weights": [
+            {
+                "Data Analyst": 0.82,
+                "Business Analyst": 0.78,
+                "Financial Analyst": 0.74,
+                "Operations Manager": 0.66,
+            },
+            {
+                "Product Manager": 0.82,
+                "Management Consultant": 0.78,
+                "HR Manager": 0.68,
+                "Sales Manager": 0.62,
+            },
+            {
+                "Software Developer": 0.80,
+                "UI/UX Designer": 0.76,
+                "Entrepreneur": 0.67,
+                "Product Manager": 0.61,
+            },
+            {
+                "Entrepreneur": 0.84,
+                "Sales Manager": 0.72,
+                "Marketing Manager": 0.68,
+                "Operations Manager": 0.60,
+            },
+        ],
+    },
+    {
+        "id": "C2",
+        "type": "mcq",
+        "text": "At the end of a strong work week, what feels most satisfying?",
+        "options": [
+            "Finding a hidden pattern that changed a key decision",
+            "Shipping something useful that people actually use",
+            "Seeing teams collaborate smoothly and hit shared goals",
+            "Turning a vague idea into visible market traction",
+        ],
+        "career_weights": [
+            {
+                "Data Analyst": 0.84,
+                "Financial Analyst": 0.79,
+                "Business Analyst": 0.74,
+                "Management Consultant": 0.58,
+            },
+            {
+                "Software Developer": 0.82,
+                "Product Manager": 0.74,
+                "UI/UX Designer": 0.68,
+                "Entrepreneur": 0.62,
+            },
+            {
+                "HR Manager": 0.80,
+                "Operations Manager": 0.76,
+                "Product Manager": 0.70,
+                "Management Consultant": 0.66,
+            },
+            {
+                "Marketing Manager": 0.82,
+                "Sales Manager": 0.78,
+                "Entrepreneur": 0.76,
+                "Product Manager": 0.60,
+            },
+        ],
+    },
+    {
+        "id": "C3",
+        "type": "mcq",
+        "text": "You are joining a new initiative with limited clarity. Which role do you naturally take?",
+        "options": [
+            "Build the decision framework and define success metrics",
+            "Shape user journeys and improve the overall experience",
+            "Coordinate people, priorities, and delivery milestones",
+            "Drive external conversations to create buy-in and momentum",
+        ],
+        "career_weights": [
+            {
+                "Business Analyst": 0.82,
+                "Data Analyst": 0.76,
+                "Management Consultant": 0.72,
+                "Financial Analyst": 0.66,
+            },
+            {
+                "UI/UX Designer": 0.84,
+                "Product Manager": 0.70,
+                "Marketing Manager": 0.62,
+                "Software Developer": 0.57,
+            },
+            {
+                "Product Manager": 0.84,
+                "Operations Manager": 0.78,
+                "HR Manager": 0.64,
+                "Management Consultant": 0.62,
+            },
+            {
+                "Sales Manager": 0.82,
+                "Marketing Manager": 0.76,
+                "Entrepreneur": 0.70,
+                "Management Consultant": 0.58,
+            },
+        ],
+    },
+    {
+        "id": "C4",
+        "type": "mcq",
+        "text": "Which work setting helps you perform at your best?",
+        "options": [
+            "Clear structure, measurable targets, and predictable processes",
+            "Fast iterations, changing priorities, and visible product impact",
+            "Open-ended briefs where creativity and storytelling matter",
+            "High-energy interactions where persuasion and relationships drive outcomes",
+        ],
+        "career_weights": [
+            {
+                "Financial Analyst": 0.83,
+                "Operations Manager": 0.78,
+                "Data Analyst": 0.72,
+                "Business Analyst": 0.66,
+            },
+            {
+                "Product Manager": 0.82,
+                "Software Developer": 0.75,
+                "Entrepreneur": 0.72,
+                "Management Consultant": 0.58,
+            },
+            {
+                "UI/UX Designer": 0.84,
+                "Marketing Manager": 0.74,
+                "Entrepreneur": 0.64,
+                "Product Manager": 0.58,
+            },
+            {
+                "Sales Manager": 0.83,
+                "HR Manager": 0.74,
+                "Marketing Manager": 0.70,
+                "Management Consultant": 0.62,
+            },
+        ],
+    },
+    {
+        "id": "C5",
+        "type": "mcq",
+        "text": "A business metric is declining for three months. What is your first move?",
+        "options": [
+            "Audit the numbers, isolate drivers, and quantify the biggest levers",
+            "Interview users/customers to understand friction and unmet needs",
+            "Redesign the operating workflow to reduce delays and failures",
+            "Rework positioning and go-to-market messaging for faster response",
+        ],
+        "career_weights": [
+            {
+                "Financial Analyst": 0.84,
+                "Data Analyst": 0.80,
+                "Business Analyst": 0.74,
+                "Management Consultant": 0.64,
+            },
+            {
+                "Product Manager": 0.80,
+                "UI/UX Designer": 0.74,
+                "Marketing Manager": 0.64,
+                "HR Manager": 0.56,
+            },
+            {
+                "Operations Manager": 0.84,
+                "Business Analyst": 0.72,
+                "Management Consultant": 0.70,
+                "Product Manager": 0.58,
+            },
+            {
+                "Marketing Manager": 0.84,
+                "Sales Manager": 0.80,
+                "Entrepreneur": 0.70,
+                "Product Manager": 0.56,
+            },
+        ],
+    },
+    {
+        "id": "C6",
+        "type": "mcq",
+        "text": "What would you choose right now?",
+        "options": [
+            "A stable, structured role with clear progression",
+            "A creative, flexible role where you shape experiences",
+            "A high-risk, high-reward role with ownership and uncertainty",
+            "A people-facing, dynamic role driven by communication and influence",
+        ],
+        "career_weights": [
+            {
+                "Financial Analyst": 0.82,
+                "Operations Manager": 0.76,
+                "Data Analyst": 0.72,
+                "Business Analyst": 0.68,
+            },
+            {
+                "UI/UX Designer": 0.84,
+                "Marketing Manager": 0.72,
+                "Product Manager": 0.64,
+                "Software Developer": 0.56,
+            },
+            {
+                "Entrepreneur": 0.85,
+                "Sales Manager": 0.70,
+                "Product Manager": 0.68,
+                "Management Consultant": 0.60,
+            },
+            {
+                "HR Manager": 0.80,
+                "Sales Manager": 0.78,
+                "Marketing Manager": 0.70,
+                "Management Consultant": 0.64,
+            },
+        ],
+    },
+    {
+        "id": "C7",
+        "type": "mcq",
+        "text": "You can only optimize one thing in your next role. What do you pick?",
+        "options": [
+            "Depth of analysis and decision quality",
+            "Speed of execution and shipping outcomes",
+            "Team alignment, culture, and collaboration",
+            "Market growth, influence, and external impact",
+        ],
+        "career_weights": [
+            {
+                "Data Analyst": 0.82,
+                "Financial Analyst": 0.80,
+                "Business Analyst": 0.74,
+                "Management Consultant": 0.62,
+            },
+            {
+                "Software Developer": 0.80,
+                "Operations Manager": 0.74,
+                "Entrepreneur": 0.72,
+                "Product Manager": 0.66,
+            },
+            {
+                "HR Manager": 0.82,
+                "Product Manager": 0.74,
+                "Operations Manager": 0.68,
+                "Management Consultant": 0.64,
+            },
+            {
+                "Marketing Manager": 0.82,
+                "Sales Manager": 0.80,
+                "Entrepreneur": 0.72,
+                "Product Manager": 0.58,
+            },
+        ],
+    },
+]
+
 # =========================
 # 🎯 CAREERS (High Separation)
 # =========================
@@ -230,6 +492,7 @@ careers = [
 
 def _validate_data() -> None:
     trait_set = set(traits)
+    career_roles = {career["role"] for career in careers}
 
     if len(traits) != len(trait_set):
         raise ValueError("Duplicate trait names found.")
@@ -251,6 +514,25 @@ def _validate_data() -> None:
         if q["type"] == "binary":
             if "yes" not in q["weights"] or "no" not in q["weights"]:
                 raise ValueError(f"{q['id']} must have yes/no weights")
+
+    for cq in career_questions:
+        if cq["id"] in ids:
+            raise ValueError(f"Duplicate question id: {cq['id']}")
+        ids.add(cq["id"])
+
+        if cq.get("type") != "mcq":
+            raise ValueError(f"{cq['id']} career question must be mcq")
+        if len(cq.get("options", [])) != len(cq.get("career_weights", [])):
+            raise ValueError(f"{cq['id']} options mismatch career_weights")
+
+        for option_weights in cq.get("career_weights", []):
+            if not isinstance(option_weights, dict) or not option_weights:
+                raise ValueError(f"{cq['id']} has invalid career weight map")
+            for role, weight in option_weights.items():
+                if role not in career_roles:
+                    raise ValueError(f"{cq['id']} references unknown career '{role}'")
+                if not (0 <= weight <= 1):
+                    raise ValueError(f"{cq['id']} has invalid career weight {weight} for '{role}'")
 
     if len(questions) < 25:
         raise ValueError("Minimum 25 questions required")

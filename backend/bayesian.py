@@ -1,8 +1,8 @@
-"""Bayesian inference helpers for trait-state updates."""
+"""Bayesian inference helpers for trait-state and career-signal updates."""
 
 from typing import Any, Dict, Mapping
 
-from data import traits
+from data import careers, traits
 
 SCALE_LIKELIHOODS: Dict[str, float] = {
     "1": 0.6,
@@ -12,6 +12,7 @@ SCALE_LIKELIHOODS: Dict[str, float] = {
     "5": 1.4,
 }
 WEIGHT_LEARNING_RATE = 0.35
+CAREER_LEARNING_RATE = 0.45
 
 
 def initial_state() -> Dict[str, float]:
@@ -19,9 +20,19 @@ def initial_state() -> Dict[str, float]:
     return {trait: 0.5 for trait in traits}
 
 
+def initial_career_signal() -> Dict[str, float]:
+    """Return neutral per-career evidence scores for a new assessment."""
+    return {career["role"]: 0.0 for career in careers}
+
+
 def _clamp_probability(value: float) -> float:
     """Clamp any score-like value to probability bounds."""
     return max(0.0, min(1.0, value))
+
+
+def _clamp_non_negative(value: float) -> float:
+    """Clamp values for non-probability score tracks (>=0)."""
+    return max(0.0, value)
 
 
 def normalize_state(state: Dict[str, float]) -> Dict[str, float]:
@@ -37,6 +48,12 @@ def _validate_trait_weights(weight_map: Mapping[str, float], state: Dict[str, fl
     for trait in weight_map:
         if trait not in state:
             raise ValueError(f"Question references unknown trait '{trait}'.")
+
+
+def _validate_career_weights(weight_map: Mapping[str, float], career_signal: Dict[str, float]) -> None:
+    for role in weight_map:
+        if role not in career_signal:
+            raise ValueError(f"Question references unknown career '{role}'.")
 
 
 def _apply_weight_updates(
@@ -59,6 +76,28 @@ def _apply_weight_updates(
         updated_state[trait] = _clamp_probability(current_value + delta)
 
     return updated_state
+
+
+def _apply_career_weight_updates(
+    career_signal: Dict[str, float],
+    weight_map: Mapping[str, float],
+    learning_rate: float = CAREER_LEARNING_RATE,
+) -> Dict[str, float]:
+    """
+    Increase per-career evidence with bounded additive updates.
+
+    Scores remain in [0, 1] and accumulate soft evidence over multiple answers.
+    """
+    _validate_career_weights(weight_map, career_signal)
+    updated_signal = dict(career_signal)
+
+    for role, weight in weight_map.items():
+        bounded_weight = _clamp_probability(float(weight))
+        current_value = _clamp_non_negative(updated_signal[role])
+        delta = learning_rate * bounded_weight * (1.0 - current_value)
+        updated_signal[role] = _clamp_probability(current_value + delta)
+
+    return updated_signal
 
 
 def update_state(
@@ -121,3 +160,31 @@ def update_state(
 
     updated_state = _apply_weight_updates(updated_state, selected_weights)
     return normalize_state(updated_state)
+
+
+def update_career_signal(
+    career_signal: Dict[str, float],
+    question: Mapping[str, Any],
+    answer: Any,
+) -> Dict[str, float]:
+    """Apply answer updates for career-based MCQ items."""
+    question_type = question.get("type")
+    if question_type != "mcq":
+        raise ValueError("Career-signal updates currently support only mcq questions.")
+
+    if not isinstance(answer, int) or isinstance(answer, bool):
+        raise ValueError("Invalid career mcq answer; expected an integer option index.")
+
+    option_weights = question.get("career_weights")
+    if not isinstance(option_weights, list):
+        raise ValueError("Career question misconfigured: missing option career weights.")
+    if answer < 0 or answer >= len(option_weights):
+        raise ValueError(
+            f"Invalid career mcq answer {answer}; expected index in [0, {len(option_weights) - 1}]."
+        )
+
+    selected_weights = option_weights[answer]
+    if not isinstance(selected_weights, Mapping):
+        raise ValueError("Career question misconfigured: selected option must map careers to weights.")
+
+    return _apply_career_weight_updates(career_signal, selected_weights)
