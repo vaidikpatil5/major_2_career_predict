@@ -16,6 +16,7 @@ export default function AssessmentPage() {
     currentQuestion,
     answers,
     maxQuestions,
+    minQuestions,
     result,
     setSessionFromStart,
     setNextQuestion,
@@ -106,7 +107,7 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 sm:py-16">
       <div className="mx-auto flex max-w-[500px] flex-col items-center gap-6">
-        <ProgressBar value={answeredCount} max={progressDenominator} />
+        <ProgressBar value={answeredCount} max={maxQuestions} min={minQuestions} />
 
         {error && (
           <p

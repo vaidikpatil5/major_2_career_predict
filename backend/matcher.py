@@ -47,6 +47,12 @@ def _effective_weights(career_signal: Optional[Dict[str, float]]) -> tuple[float
 def score_careers(state: Dict[str, float], career_signal: Optional[Dict[str, float]] = None) -> List[Dict[str, float]]:
     """Return scored careers with transparent trait/signal component breakdown."""
     state_vector = state_to_vector(state)
+    # Center the state vector by subtracting its mean.
+    # normalize_state() forces values to sum to 1 (avg = 1/n_traits ≈ 0.2).
+    # Without centering, all-positive vectors produce cosine ~0.97-0.99 for every career.
+    # After centering: dominant traits → positive, suppressed traits → negative,
+    # average traits → ~0. This gives real discrimination between careers.
+    state_vector = state_vector - state_vector.mean()
     signal_state = career_signal or {}
     trait_weight, signal_weight = _effective_weights(signal_state)
     scored_careers: List[Dict[str, float]] = []
@@ -56,13 +62,16 @@ def score_careers(state: Dict[str, float], career_signal: Optional[Dict[str, flo
         trait_score = cosine_similarity(state_vector, career_vector)
         signal_score = _career_signal_score(signal_state, career["role"])
         blended_score = (trait_weight * trait_score) + (signal_weight * signal_score)
+        # Map cosine range [-1, 1] → display range [0, 1] so the frontend shows
+        # meaningful percentages (e.g. 65%) instead of raw cosine values or negatives.
+        display_score = round((blended_score + 1.0) / 2.0, 4)
         scored_careers.append(
             {
                 "role": career["role"],
-                "score": round(blended_score, 4),
+                "score": display_score,
                 "trait_score": round(trait_score, 4),
                 "career_signal_score": round(signal_score, 4),
-                "blended_score": round(blended_score, 4),
+                "blended_score": display_score,
             }
         )
 

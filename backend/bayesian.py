@@ -4,13 +4,18 @@ from typing import Any, Dict, Mapping
 
 from data import careers, traits
 
+# P(answer | trait is HIGH) — proper Bayesian likelihoods for scale questions.
+# Answer 3 (neutral) gives 50/50 evidence. Answers 1–2 reduce trait belief,
+# answers 4–5 increase it. These are NOT multipliers — they are probabilities.
 SCALE_LIKELIHOODS: Dict[str, float] = {
-    "1": 0.6,
-    "2": 0.8,
-    "3": 1.0,
-    "4": 1.2,
-    "5": 1.4,
+    "1": 0.10,  # strongly disagree  → very unlikely if trait is high
+    "2": 0.25,  # disagree           → unlikely if trait is high
+    "3": 0.50,  # neutral            → equal evidence either way
+    "4": 0.75,  # agree              → likely if trait is high
+    "5": 0.90,  # strongly agree     → very likely if trait is high
 }
+# P(answer = high | trait is NOT high) — uniform baseline for all answers.
+SCALE_BASELINE = 0.20
 WEIGHT_LEARNING_RATE = 0.35
 CAREER_LEARNING_RATE = 0.45
 
@@ -36,12 +41,14 @@ def _clamp_non_negative(value: float) -> float:
 
 
 def normalize_state(state: Dict[str, float]) -> Dict[str, float]:
-    """Normalize the trait state so values stay in [0, 1] and sum to 1."""
-    bounded = {trait: _clamp_probability(state.get(trait, 0.0)) for trait in traits}
-    total = sum(bounded.values())
-    if total <= 0:
-        return initial_state()
-    return {trait: bounded[trait] / total for trait in traits}
+    """Clamp each trait independently to [0, 1].
+
+    Traits represent independent Bayesian beliefs — they are NOT a probability
+    distribution and must NOT be forced to sum to 1. Dividing by the total
+    creates false competition: increasing analytical would silently decrease
+    social/creativity/risk even without any evidence about those traits.
+    """
+    return {trait: _clamp_probability(state.get(trait, 0.0)) for trait in traits}
 
 
 def _validate_trait_weights(weight_map: Mapping[str, float], state: Dict[str, float]) -> None:
@@ -124,7 +131,13 @@ def update_state(
         if answer_key not in likelihoods:
             raise ValueError(f"Invalid scale answer {answer}; expected an integer from 1 to 5.")
 
-        updated_state[trait] = _clamp_probability(updated_state[trait] * float(likelihoods[answer_key]))
+        # Proper Bayesian update: posterior = P(trait=high | answer)
+        # = P(answer | trait=high) * prior / P(answer)
+        prior = updated_state[trait]
+        lk = float(likelihoods[answer_key])                    # P(answer | trait=high)
+        denom = lk * prior + SCALE_BASELINE * (1.0 - prior)   # P(answer)
+        posterior = (lk * prior) / denom if denom > 0 else prior
+        updated_state[trait] = _clamp_probability(posterior)
         return normalize_state(updated_state)
 
     if question_type == "binary":

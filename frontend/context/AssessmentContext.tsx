@@ -11,6 +11,7 @@ import {
 import type { AnswerPayload, AssessmentResult, Question } from "@/lib/types";
 
 const MAX_QUESTIONS = 10;
+const MIN_QUESTIONS = 8; // matches backend MIN_QUESTIONS in selector.py
 const STORAGE_KEY = "career_assessment_state_v1";
 
 type PersistedState = {
@@ -56,6 +57,7 @@ type AssessmentContextValue = {
   answers: AnswerRecord[];
   result: AssessmentResult | null;
   maxQuestions: number;
+  minQuestions: number;
   setSessionFromStart: (sessionId: string, question: Question) => void;
   setNextQuestion: (question: Question | null) => void;
   appendAnswer: (questionId: string, value: AnswerPayload) => void;
@@ -139,6 +141,7 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
       answers,
       result,
       maxQuestions: MAX_QUESTIONS,
+      minQuestions: MIN_QUESTIONS,
       setSessionFromStart,
       setNextQuestion,
       appendAnswer,

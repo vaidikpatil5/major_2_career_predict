@@ -9,15 +9,15 @@ from bayesian import update_state
 from data import career_questions, questions
 from matcher import get_top_careers
 
-MIN_QUESTIONS = 5
+MIN_QUESTIONS = 8
 MAX_QUESTIONS = 10
 EARLY_STAGE_QUESTIONS = 4
 TARGET_TRAIT_EXPOSURE = 2
-DOMINANT_TRAIT_THRESHOLD = 0.40
-UNCERTAINTY_STOP_THRESHOLD = 0.56
+DOMINANT_TRAIT_THRESHOLD = 0.55  # with normalized state (sum=1, 5 traits, avg=0.2), 0.55 means
+                                 # one trait holds 55% of total weight — strong unambiguous signal
 MIN_CAREER_QUESTIONS = 1
 MAX_CAREER_QUESTIONS = 3
-CAREER_TIEBREAK_MARGIN = 0.06
+CAREER_TIEBREAK_MARGIN = 0.10  # recalibrated for new score range [0,1] after cosine remapping
 
 ALL_QUESTIONS = questions + career_questions
 QUESTION_LOOKUP = {question["id"]: question for question in ALL_QUESTIONS}
@@ -284,7 +284,17 @@ def _career_question_score(
 
 
 def should_stop(state: Dict[str, float], questions_asked: int, asked_career_questions: int = 0) -> bool:
-    """Return True when minimum evidence is collected and confidence is strong enough."""
+    """Return True when minimum evidence is collected and confidence is strong enough.
+
+    Stops when either:
+    - questions_asked >= MAX_QUESTIONS (hard cap), OR
+    - All three conditions met: MIN_QUESTIONS asked, at least one career question asked,
+      AND the dominant trait clearly leads (>= 55% of normalized total weight).
+
+    Note: UNCERTAINTY_STOP_THRESHOLD removed — binary entropy on normalize_state() values
+    is unreliable because entropy(0.2) = 0.72 and increases as one trait dominates,
+    causing the condition to fire in the wrong direction.
+    """
     if questions_asked >= MAX_QUESTIONS:
         return True
     if questions_asked < MIN_QUESTIONS:
@@ -295,8 +305,7 @@ def should_stop(state: Dict[str, float], questions_asked: int, asked_career_ques
         return False
 
     dominant_trait = max(state.values())
-    uncertainty = calculate_uncertainty(state)
-    return dominant_trait >= DOMINANT_TRAIT_THRESHOLD and uncertainty <= UNCERTAINTY_STOP_THRESHOLD
+    return dominant_trait >= DOMINANT_TRAIT_THRESHOLD
 
 
 def select_next_question(
