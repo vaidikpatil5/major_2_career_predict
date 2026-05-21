@@ -117,7 +117,7 @@ export default function HomePage() {
                 <SearchCheck size={20} />
               </div>
               <h4 className="font-bold text-slate-900">Deep Skill Audit</h4>
-              <p className="mt-2 text-sm text-slate-500">Scanning 50+ industry parameters to find exactly what you're missing.</p>
+              <p className="mt-2 text-sm text-slate-500">Scanning 50+ industry parameters to find exactly what you&apos;re missing.</p>
             </div>
             <div className="text-center sm:text-left">
               <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-900">
