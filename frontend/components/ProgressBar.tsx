@@ -3,20 +3,23 @@
 type ProgressBarProps = {
   value: number;
   max?: number;
+  min?: number;
   className?: string;
 };
 
 export function ProgressBar({
   value,
   max = 100,
+  min,
   className = "",
 }: ProgressBarProps) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  const rangeLabel = min !== undefined ? `${min}–${max}` : `${max}`;
 
   return (
     <div className={`w-full ${className}`}>
       <div className="mb-1 flex justify-between text-xs font-medium text-slate-500">
-        <span>Progress</span>
+        <span>Question {value} of {rangeLabel}</span>
         <span>{Math.round(pct)}%</span>
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">

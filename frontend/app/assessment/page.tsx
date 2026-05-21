@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProgressBar } from "@/components/ProgressBar";
-import { QuestionCard } from "@/components/QuestionCard";
+import { QuestionRenderer } from "@/components/QuestionRenderer";
 import { useAssessment } from "@/context/AssessmentContext";
 import { startAssessment, submitAnswer } from "@/lib/api";
-import { ApiError } from "@/lib/types";
+import { ApiError, type AnswerPayload } from "@/lib/types";
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function AssessmentPage() {
     currentQuestion,
     answers,
     maxQuestions,
+    minQuestions,
     result,
     setSessionFromStart,
     setNextQuestion,
@@ -26,7 +27,9 @@ export default function AssessmentPage() {
   const [initLoading, setInitLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedValue, setSelectedValue] = useState<number | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<AnswerPayload | null>(
+    null
+  );
 
   useEffect(() => {
     if (result) {
@@ -64,10 +67,10 @@ export default function AssessmentPage() {
     };
   }, [result, sessionId, currentQuestion, router, setSessionFromStart]);
 
-  async function handleSelect(answer: number) {
+  async function handleAnswer(answer: AnswerPayload) {
     if (!sessionId || !currentQuestion || submitLoading) return;
     setError(null);
-    setSelectedValue(answer);
+    setSelectedAnswer(answer);
     setSubmitLoading(true);
     try {
       const res = await submitAnswer(sessionId, answer);
@@ -81,7 +84,7 @@ export default function AssessmentPage() {
 
       if (res.question) {
         setNextQuestion(res.question);
-        setSelectedValue(null);
+        setSelectedAnswer(null);
       } else {
         setError("Unexpected response: no question or result.");
       }
@@ -104,7 +107,7 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 sm:py-16">
       <div className="mx-auto flex max-w-[500px] flex-col items-center gap-6">
-        <ProgressBar value={answeredCount} max={progressDenominator} />
+        <ProgressBar value={answeredCount} max={maxQuestions} min={minQuestions} />
 
         {error && (
           <p
@@ -120,12 +123,11 @@ export default function AssessmentPage() {
         ) : currentQuestion && submitLoading ? (
           <LoadingSpinner label="Analyzing your response..." />
         ) : currentQuestion ? (
-          <QuestionCard
-            questionKey={currentQuestion.id}
-            questionText={currentQuestion.text}
+          <QuestionRenderer
+            question={currentQuestion}
             loading={submitLoading}
-            selectedValue={selectedValue}
-            onSelect={handleSelect}
+            selectedAnswer={selectedAnswer}
+            onAnswer={handleAnswer}
           />
         ) : null}
       </div>
