@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { MascotCharacter } from "@/components/MascotCharacter";
 import { ProgressBar } from "@/components/ProgressBar";
 import { QuestionRenderer } from "@/components/QuestionRenderer";
 import { useAssessment } from "@/context/AssessmentContext";
@@ -114,6 +115,11 @@ export default function AssessmentPage() {
 
       <div className="mx-auto flex w-full max-w-[500px] flex-col items-center gap-8">
         <ProgressBar value={answeredCount} max={maxQuestions} min={minQuestions} />
+
+        <MascotCharacter
+          currentQuestionIndex={answeredCount}
+          isLoading={initLoading || submitLoading}
+        />
 
         {error && (
           <p
