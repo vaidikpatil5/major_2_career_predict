@@ -1,3 +1,4 @@
+# Updated: Fixed Bayesian update, Shannon entropy IG, O*NET career vectors /
 """Bayesian inference helpers for trait-state updates."""
 
 from typing import Dict
@@ -10,12 +11,13 @@ def initial_state() -> Dict[str, float]:
     return {trait: 0.5 for trait in traits}
 
 
-def normalize_state(state: Dict[str, float]) -> Dict[str, float]:
-    """Normalize the trait state so the values sum to 1."""
-    total = sum(state.values())
-    if total <= 0:
-        return initial_state()
-    return {trait: value / total for trait, value in state.items()}
+def bayesian_update(prior: float, likelihood: float) -> float:
+    """Compute the Bayesian update for a single independent binary trait belief."""
+    denom = likelihood * prior + 0.2 * (1.0 - prior)
+    if denom == 0.0:
+        return prior
+    posterior = (likelihood * prior) / denom
+    return max(0.001, min(0.999, posterior))
 
 
 def update_state(
@@ -24,7 +26,7 @@ def update_state(
     answer: int,
     likelihoods: Dict[str, float],
 ) -> Dict[str, float]:
-    """Apply the requested Bayesian update and renormalize the full state."""
+    """Apply the requested Bayesian update to one trait, leaving other traits unchanged."""
     answer_key = str(answer)
     if answer_key not in likelihoods:
         raise ValueError(f"Invalid answer {answer}; expected an integer from 1 to 5.")
@@ -32,5 +34,8 @@ def update_state(
         raise ValueError(f"Unknown trait '{trait}'.")
 
     updated_state = dict(state)
-    updated_state[trait] = updated_state[trait] * likelihoods[answer_key]
-    return normalize_state(updated_state)
+    prior = updated_state[trait]
+    likelihood = likelihoods[answer_key]
+    updated_state[trait] = bayesian_update(prior, likelihood)
+    return updated_state
+

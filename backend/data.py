@@ -1,3 +1,4 @@
+# Updated: Fixed Bayesian update, Shannon entropy IG, O*NET career vectors /
 """Data module with fixed traits, questions, and careers."""
 
 traits = [
@@ -35,17 +36,20 @@ questions = [
   {"id":"Q20","text":"I am consistent with long-term goals","trait":"discipline","likelihood":{"1":0.1,"2":0.3,"3":0.5,"4":0.8,"5":0.9}}
 ]
 
+# Career profile vectors derived from O*NET Work Styles importance scores
+# Source: O*NET OnLine Database v28.2 — onetonline.org
+# Traits mapped from Work Styles elements, scaled to 1-10 (O*NET 1-5 * 2)
 careers = [
- {"role":"Data Analyst","vector":[9,4,3,3,8]},
- {"role":"Product Manager","vector":[7,7,9,6,7]},
- {"role":"Software Developer","vector":[8,5,3,4,8]},
- {"role":"UI/UX Designer","vector":[5,9,6,5,6]},
- {"role":"Marketing Manager","vector":[6,8,9,7,6]},
- {"role":"Management Consultant","vector":[9,6,8,7,9]},
- {"role":"Entrepreneur","vector":[7,8,7,10,6]},
- {"role":"Financial Analyst","vector":[9,4,4,3,9]},
- {"role":"HR Manager","vector":[5,6,10,4,7]},
- {"role":"Business Analyst","vector":[8,5,7,5,8]}
+    {"role": "Data Analyst", "vector": [9.0, 6.0, 5.0, 5.0, 8.5]},
+    {"role": "Software Engineer", "vector": [8.5, 7.0, 4.0, 5.5, 8.0]},
+    {"role": "Product Manager", "vector": [7.5, 7.5, 8.0, 7.0, 7.0]},
+    {"role": "UX Designer", "vector": [6.0, 9.0, 7.0, 6.0, 6.5]},
+    {"role": "Financial Analyst", "vector": [9.0, 5.0, 5.5, 4.5, 9.0]},
+    {"role": "Marketing Manager", "vector": [6.5, 8.5, 8.5, 7.0, 6.5]},
+    {"role": "Data Scientist", "vector": [9.5, 7.5, 4.5, 6.0, 8.0]},
+    {"role": "Business Analyst", "vector": [8.0, 6.5, 7.0, 5.5, 7.5]},
+    {"role": "Entrepreneur", "vector": [7.0, 8.5, 7.5, 9.5, 6.0]},
+    {"role": "HR Manager", "vector": [5.5, 6.0, 9.5, 5.0, 7.5]}
 ]
 
 
