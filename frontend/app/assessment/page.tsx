@@ -105,23 +105,33 @@ export default function AssessmentPage() {
   const progressDenominator = maxQuestions;
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 sm:py-16">
-      <div className="mx-auto flex max-w-[500px] flex-col items-center gap-6">
+    <main className="relative min-h-screen px-4 py-12 sm:py-20 flex flex-col justify-center items-center overflow-hidden">
+      {/* Background ambient light */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute top-[20%] left-[10%] w-72 h-72 rounded-full bg-indigo-500/5 blur-[100px] animate-float" />
+        <div className="absolute bottom-[20%] right-[10%] w-80 h-80 rounded-full bg-cyan-500/5 blur-[100px] animate-float" style={{ animationDelay: "-3s" }} />
+      </div>
+
+      <div className="mx-auto flex w-full max-w-[500px] flex-col items-center gap-8">
         <ProgressBar value={answeredCount} max={maxQuestions} min={minQuestions} />
 
         {error && (
           <p
-            className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900"
+            className="w-full rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-center text-sm font-semibold text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
             role="alert"
           >
-            {error}
+            ⚠️ {error}
           </p>
         )}
 
         {initLoading && !currentQuestion ? (
-          <LoadingSpinner label="Preparing your first question…" />
+          <div className="flex flex-col items-center gap-4 py-12">
+            <LoadingSpinner label="Booting adaptive scan engine…" />
+          </div>
         ) : currentQuestion && submitLoading ? (
-          <LoadingSpinner label="Analyzing your response..." />
+          <div className="flex flex-col items-center gap-4 py-12">
+            <LoadingSpinner label="Analyzing response vectors..." />
+          </div>
         ) : currentQuestion ? (
           <QuestionRenderer
             question={currentQuestion}

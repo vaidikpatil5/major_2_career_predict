@@ -6,15 +6,15 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40";
 
 const variants = {
   primary:
-    "bg-indigo-600 text-white shadow-md hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98] focus-visible:outline-indigo-600",
+    "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_20px_rgba(99,102,241,0.45)] hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-indigo-500",
   secondary:
-    "border border-slate-200 bg-white text-slate-800 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 focus-visible:outline-indigo-500",
+    "border border-slate-700 bg-slate-800/40 text-slate-200 backdrop-blur-md hover:border-indigo-400/80 hover:bg-indigo-950/20 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-indigo-500",
   ghost:
-    "text-indigo-700 hover:bg-indigo-50 focus-visible:outline-indigo-500",
+    "text-indigo-400 hover:bg-indigo-950/30 focus-visible:outline-indigo-500",
 };
 
 export function Button({
